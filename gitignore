@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.pkl
 
 # Virtual environments
 .venv/
@@ -15,7 +14,7 @@ env/
 
 # Database / vector store cache
 *.db
-chroma_db/
+faiss_db/
 langchain_db/
 
 # Jupyter Notebook

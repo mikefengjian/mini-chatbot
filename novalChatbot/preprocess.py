@@ -1,100 +1,46 @@
 import pickle
-import shutil
 import os
-from tqdm import tqdm
-from chatbot import MyVectorDBConnector, OpenAIEmbeddingFunction, extract_text_from_pdf
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 
-def preprocess_pdf(
-        pdf_path="westJourney.pdf",
-        output_path="processed_data.pkl",
-        chroma_dir="./chroma_db"
-):
-    """Preprocess PDF and save results"""
-    print("Starting PDF preprocessing...")
 
-    # Clean old data
-    if os.path.exists(output_path):
-        os.remove(output_path)
-    if os.path.exists(chroma_dir):
-        shutil.rmtree(chroma_dir)
-
-    # Create vector database
-    vector_db = MyVectorDBConnector(
-        "journey",
-        embedding_function=OpenAIEmbeddingFunction(),
-        persist_directory=chroma_dir
+def extract_text_from_pdf(pdf_path, chunk_size=500, chunk_overlap=50):
+    loader = PyPDFLoader(pdf_path)
+    docs = loader.load()
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", "。", "！", "？", "，", " ", ""]
     )
+    return text_splitter.split_documents(docs)
 
-    # Extract text
-    print("Extracting text from PDF...")
-    paragraphs = extract_text_from_pdf(pdf_path, min_line_length=10)
 
-    # ✅ Filter out empty, None, or non-string paragraphs
-    paragraphs = [p for p in paragraphs if p and isinstance(p, str) and p.strip()]
+def main():
+    pdf_path = "westJourney.pdf"
+    output_dir = "faiss_index"
+    metadata_path = "processed_data.pkl"
 
-    if not paragraphs:
-        print("No valid text extracted from PDF")
-        return False
+    print("Starting PDF preprocessing...")
+    paragraphs = extract_text_from_pdf(pdf_path)
 
     print(f"Extracted {len(paragraphs)} paragraphs")
 
-    # Batch processing
-    batch_size = 50  # Process 50 paragraphs per batch
-    total_batches = (len(paragraphs) + batch_size - 1) // batch_size
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    vectorstore = FAISS.from_documents(paragraphs, embeddings)
 
-    print("Building vector database...")
-    for i in tqdm(range(0, len(paragraphs), batch_size), total=total_batches, desc="Processing"):
-        batch = paragraphs[i:i + batch_size]
+    # 保存向量数据库
+    vectorstore.save_local("faiss_index")
 
-        # ✅ Skip empty batch
-        if not batch:
-            print(f"Skipping empty batch {i // batch_size + 1}/{total_batches}")
-            continue
-
-        # ✅ Debug info
-        print(f"\n===> Processing batch {i // batch_size + 1}/{total_batches}")
-        print(f"Paragraph count: {len(batch)}")
-        print(f"First paragraph (100 chars): {batch[0][:100]}...")
-        print(f"Paragraph type: {type(batch[0])}")
-
-        try:
-            vector_db.add_documents(batch, ids=[str(j) for j in range(i, i + len(batch))])
-        except Exception as e:
-            print(f"Error in batch {i // batch_size + 1}/{total_batches}: {str(e)}")
-            continue
-
-    # Save processed results
-    print("Saving processed results...")
-    with open(output_path, 'wb') as f:
-        pickle.dump({
-            'paragraphs': paragraphs,
-            'collection_name': 'journey'
-        }, f)
+    # 保存元数据
+    with open(metadata_path, "wb") as f:
+        pickle.dump(paragraphs, f)
 
     print("Processing completed!")
-    print(f"- Vector database saved at: {chroma_dir}")
-    print(f"- Text data saved at: {output_path}")
-    return True
+    print(f"- FAISS index saved at: {output_dir}")
+    print(f"- Metadata saved at: {metadata_path}")
+
 
 if __name__ == "__main__":
-    # Add command line argument support
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Preprocess a PDF file')
-    parser.add_argument('--pdf', type=str, default="westJourney.pdf", help='Path to PDF file')
-    parser.add_argument('--output', type=str, default="processed_data.pkl", help='Output file path')
-    parser.add_argument('--chroma', type=str, default="./chroma_db", help='Vector database directory')
-
-    args = parser.parse_args()
-
-    # Run preprocessing
-    success = preprocess_pdf(
-        pdf_path=args.pdf,
-        output_path=args.output,
-        chroma_dir=args.chroma
-    )
-
-    if success:
-        print("Preprocessing completed successfully!")
-    else:
-        print("Preprocessing failed!")
+    main()
