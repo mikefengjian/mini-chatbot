@@ -35,11 +35,14 @@ def load_vectorstore():
     # Option: use "text-embedding-3-large" for higher accuracy
 
     # Store embeddings inside a Chroma vector database (local persistent DB)
-    vectordb = Chroma.from_documents(
-        docs,
-        embeddings,
-        persist_directory="./langchain_db"  # saves to disk for reuse
-    )
+    if os.getenv("STREAMLIT_RUNTIME", ""):
+        vectordb = Chroma.from_documents(docs, embeddings)
+    else:
+        vectordb = Chroma.from_documents(
+            docs,
+            embeddings,
+            persist_directory="./langchain_db"
+        )
     return vectordb
 
 # --- Load or create the vectorstore ---
