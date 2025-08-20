@@ -10,8 +10,7 @@ from chatbot import (
     RagBot,
 )
 
-DEFAULT_PDF_PATH = "westJourney.pdf"
-
+DEFAULT_PDF_PATH = os.path.join("novalChatbot", "westJourney.pdf")
 
 def initialize_bot():
     if "bot" not in st.session_state:
