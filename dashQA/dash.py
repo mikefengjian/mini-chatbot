@@ -5,6 +5,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.chains import RetrievalQA
+from langchain_community.vectorstores import FAISS
 
 # Path to the PDF file we want to use as our knowledge base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,11 +36,12 @@ def load_vectorstore():
     # Option: use "text-embedding-3-large" for higher accuracy
 
     # Store embeddings inside a Chroma vector database (local persistent DB)
-    vectordb = Chroma.from_documents(
-        docs,
-        embeddings
-        #persist_directory="./langchain_db"  # saves to disk for reuse
-    )
+    vectordb = FAISS.from_documents(docs, embeddings)
+    #vectordb = Chroma.from_documents(
+    #    docs,
+    #    embeddings,
+    #    persist_directory="./langchain_db"  # saves to disk for reuse
+    #)
     return vectordb
 
 # --- Load or create the vectorstore ---
